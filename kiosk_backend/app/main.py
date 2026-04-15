@@ -1,12 +1,27 @@
 from fastapi import FastAPI
-from app.api.routes import detection, state, session,greeting,listening
+from app.api.routes import state, session,greeting,listening
 from fastapi.responses import FileResponse
 from pathlib import Path
 
+import app.api.routes.state as state
+import app.api.routes.session as session
+import app.api.routes.greeting as greeting
+import app.api.routes.listening as listening
+from contextlib import asynccontextmanager  # ⭐ 이거 추가
 
-app = FastAPI(title="AI Kiosk Backend")
+from app.services.camera_detection_service import camera_detection_service
 
-app.include_router(detection.router, prefix="/api")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("[INFO] FastAPI startup")
+    camera_detection_service.start()
+    yield
+    print("[INFO] FastAPI shutdown")
+    camera_detection_service.stop()
+
+
+app = FastAPI(title="AI Kiosk Backend", lifespan=lifespan)
+
 app.include_router(state.router, prefix="/api")
 app.include_router(session.router, prefix="/api")
 app.include_router(greeting.router, prefix="/api")
