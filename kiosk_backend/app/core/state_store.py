@@ -73,6 +73,23 @@ class StateStore:
             "message_text": "안녕하세요. 무엇을 도와드릴까요?",
             "tts_text": "안녕하세요. 무엇을 도와드릴까요?"
         }
+    
+    def start_listening(self) -> dict:
+        if self._state.current_state != "GREETING":
+            return {
+            "success": False,
+            "message": "cannot start listening in current state",
+            "state": self._state.current_state,
+        }
+
+        self._state.current_state = "LISTENING"
+
+        return {
+        "success": True,
+        "message": "listening started",
+        "state": self._state.current_state,
+        "session_id": self._state.session_id
+    }
 
     def reset(self) -> dict:
         self._state = KioskState()
