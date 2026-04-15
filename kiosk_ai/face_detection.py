@@ -14,38 +14,54 @@ FRONTAL_HOLD_SECONDS = 1.0
 
 
 class LiveFaceDetector:
-    def __init__(self):
+    def __init__(self, tts_service=None):
         self.detector = None
         self.latest_result = None
 
         self.frontal_start_time = None
         self.has_announced = False
+        self.was_frontal = False
+
+        self.tts_service = tts_service
 
     def _result_callback(self, result, output_image, timestamp_ms: int):
         self.latest_result = result
 
-        if result and result.detections:
-            best_detection = result.detections[0]
+        if not result or not result.detections:
+            self.reset_frontal_state()
+            return
 
-            if self.is_frontal_face(best_detection):
-                now = time.time()
+        best_detection = result.detections[0]
+        is_frontal = self.is_frontal_face(best_detection)
 
-                if self.frontal_start_time is None:
-                    self.frontal_start_time = now
+        if is_frontal:
+            # 방금 정면 상태로 진입한 경우
+            if not self.was_frontal:
+                self.frontal_start_time = time.time()
+                self.has_announced = False
+                self.was_frontal = True
+                print("[상태] 정면 진입")
 
-                elapsed = now - self.frontal_start_time
+            elapsed = time.time() - self.frontal_start_time
 
-                if elapsed >= FRONTAL_HOLD_SECONDS and not self.has_announced:
-                    print("무엇을 도와드릴까요?")
-                    self.has_announced = True
-            else:
-                self.reset_frontal_state()
+            if elapsed >= FRONTAL_HOLD_SECONDS and not self.has_announced:
+                message = "안녕하세요. 질문 있으세요?"
+                print(message)
+
+                if self.tts_service is not None:
+                    self.tts_service.speak_async(message)
+
+                self.has_announced = True
+
         else:
+            if self.was_frontal:
+                print("[상태] 정면 해제 -> 초기화")
             self.reset_frontal_state()
 
     def reset_frontal_state(self):
         self.frontal_start_time = None
         self.has_announced = False
+        self.was_frontal = False
 
     def create(self):
         base_options = python.BaseOptions(model_asset_path=MODEL_PATH)
@@ -64,13 +80,6 @@ class LiveFaceDetector:
         self.detector.detect_async(mp_image, timestamp_ms)
 
     def is_frontal_face(self, detection) -> bool:
-        """
-        대략적인 정면 얼굴 판별:
-        - keypoint 4개(양눈, 코, 입)가 존재
-        - 코가 양눈 중앙 근처
-        - 입이 코 아래쪽
-        - 얼굴 bbox가 너무 작지 않음
-        """
         if not detection.categories:
             return False
 
@@ -86,36 +95,28 @@ class LiveFaceDetector:
         if keypoints is None or len(keypoints) < 4:
             return False
 
-        # MediaPipe face detector keypoints 순서:
-        # 0 left eye
-        # 1 right eye
-        # 2 nose tip
-        # 3 mouth
         left_eye = keypoints[0]
         right_eye = keypoints[1]
         nose = keypoints[2]
         mouth = keypoints[3]
 
-        # 눈 중앙 계산
         eye_center_x = (left_eye.x + right_eye.x) / 2.0
-
-        # 코가 두 눈 중앙 근처에 있는지
         nose_eye_offset = abs(nose.x - eye_center_x)
-
-        # 입이 코보다 아래에 있는지
         mouth_below_nose = mouth.y > nose.y
-
-        # 양쪽 눈 간 거리 너무 좁지 않은지
         eye_distance = abs(right_eye.x - left_eye.x)
+        eye_y_diff = abs(right_eye.y - left_eye.y)
 
-        # 경험적 기준값
-        if nose_eye_offset > 0.08:
+        # 조금 더 엄격하게
+        if nose_eye_offset > 0.03:
             return False
 
         if not mouth_below_nose:
             return False
 
         if eye_distance < 0.06:
+            return False
+
+        if eye_y_diff > 0.02:
             return False
 
         return True
@@ -131,7 +132,6 @@ class LiveFaceDetector:
 
             cv2.rectangle(frame_bgr, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
-            # frontal 여부 표시
             frontal = self.is_frontal_face(detection)
             text = "FRONTAL" if frontal else "NOT FRONTAL"
 
@@ -145,7 +145,6 @@ class LiveFaceDetector:
                 2
             )
 
-            # keypoints 표시
             if detection.keypoints:
                 h_img, w_img, _ = frame_bgr.shape
                 for kp in detection.keypoints[:4]:
