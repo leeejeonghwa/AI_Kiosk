@@ -14,7 +14,6 @@ class CameraDetectionService:
         self.running = False
         self.thread = None
 
-        # 연속 감지로 인사 반복되는 것 방지
         self.cooldown_seconds = 5.0
         self.last_trigger_time = 0.0
 
@@ -23,14 +22,28 @@ class CameraDetectionService:
             print("[INFO] CameraDetectionService already running")
             return
 
-        self.cap = cv2.VideoCapture(CAMERA_INDEX)
+        print(f"[INFO] opening camera index={CAMERA_INDEX}")
+
+        # Windows에서는 CAP_DSHOW가 안정적인 편
+        self.cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_DSHOW)
+
         if not self.cap.isOpened():
-            print("[ERROR] 웹캠을 열 수 없습니다.")
+            print(f"[ERROR] 웹캠을 열 수 없습니다. camera_index={CAMERA_INDEX}")
             self.cap = None
             return
 
-        self.detector = LiveFaceDetector()
-        self.detector.create()
+        print("[INFO] camera opened successfully")
+
+        try:
+            self.detector = LiveFaceDetector()
+            self.detector.create()
+            print("[INFO] detector created successfully")
+        except Exception as e:
+            print(f"[ERROR] detector create failed: {e}")
+            if self.cap:
+                self.cap.release()
+                self.cap = None
+            return
 
         self.running = True
         self.thread = threading.Thread(target=self._run_loop, daemon=True)
@@ -55,6 +68,8 @@ class CameraDetectionService:
         print("[INFO] CameraDetectionService stopped")
 
     def _run_loop(self) -> None:
+        print("[INFO] camera loop started")
+
         while self.running:
             if self.cap is None or self.detector is None:
                 time.sleep(0.1)
@@ -62,14 +77,28 @@ class CameraDetectionService:
 
             ret, frame = self.cap.read()
             if not ret:
+                print("[WARN] frame read failed")
                 time.sleep(0.05)
                 continue
 
             timestamp_ms = int(time.time() * 1000)
-            self.detector.detect_async(frame, timestamp_ms)
 
+            try:
+                self.detector.detect_async(frame, timestamp_ms)
+            except Exception as e:
+                print(f"[ERROR] detect_async failed: {e}")
+                time.sleep(0.1)
+                continue
+
+            # 정면 얼굴 1초 유지 -> 인사 시작
             if self.detector.consume_greeting_trigger():
+                print("[INFO] greeting trigger detected")
                 self._handle_detected_user()
+
+            # 얼굴이 일정 시간 사라짐 -> IDLE 복귀
+            if self.detector.consume_no_face_trigger():
+                print("[INFO] no face trigger detected")
+                self._handle_no_face()
 
             time.sleep(0.03)
 
@@ -77,16 +106,19 @@ class CameraDetectionService:
         now = time.time()
 
         if now - self.last_trigger_time < self.cooldown_seconds:
+            print("[INFO] trigger ignored by cooldown")
             return
 
         current = state_store.get_state()
         current_state = current.get("current_state")
+        print(f"[INFO] current_state={current_state}")
 
-        # 광고/대기 상태일 때만 새로 진입
         if current_state != "IDLE":
+            print("[INFO] trigger ignored because state is not IDLE")
             return
 
         detection_result = state_store.handle_detection(detected=True)
+        print(f"[INFO] detection_result={detection_result}")
 
         if detection_result.get("state") == "USER_DETECTED":
             greeting_result = state_store.start_greeting()
@@ -97,6 +129,15 @@ class CameraDetectionService:
                 f"session_id={greeting_result.get('session_id')} | "
                 f"message={greeting_result.get('message_text')}"
             )
+
+    def _handle_no_face(self) -> None:
+        current = state_store.get_state()
+        current_state = current.get("current_state")
+        print(f"[INFO] no face current_state={current_state}")
+
+        if current_state in ["USER_DETECTED", "GREETING", "LISTENING"]:
+            reset_result = state_store.reset()
+            print(f"[INFO] no face detected -> reset to IDLE | result={reset_result}")
 
 
 camera_detection_service = CameraDetectionService()

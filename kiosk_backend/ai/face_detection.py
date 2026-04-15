@@ -4,13 +4,14 @@ import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
-from config import (
+from ai.config import (
     MODEL_PATH,
     MIN_DETECTION_CONFIDENCE,
     MIN_SUPPRESSION_THRESHOLD,
 )
 
 FRONTAL_HOLD_SECONDS = 1.0
+NO_FACE_TIMEOUT_SECONDS = 3.0
 
 
 class LiveFaceDetector:
@@ -22,29 +23,42 @@ class LiveFaceDetector:
         self.has_announced = False
         self.greeting_triggered = False
 
+        self.last_seen_time = None
+        self.no_face_triggered = False
+
     def _result_callback(self, result, output_image, timestamp_ms: int):
         self.latest_result = result
-
-        if not result or not result.detections:
-            self.reset_frontal_state()
-            return
-
-        best_detection = result.detections[0]
-
-        if not self.is_frontal_face(best_detection):
-            self.reset_frontal_state()
-            return
-
         now = time.time()
 
-        if self.frontal_start_time is None:
-            self.frontal_start_time = now
+        if result and result.detections:
+            self.last_seen_time = now
+            self.no_face_triggered = False
 
-        elapsed = now - self.frontal_start_time
+            best_detection = result.detections[0]
 
-        if elapsed >= FRONTAL_HOLD_SECONDS and not self.has_announced:
-            self.greeting_triggered = True
-            self.has_announced = True
+            if not self.is_frontal_face(best_detection):
+                self.frontal_start_time = None
+                self.has_announced = False
+                return
+
+            if self.frontal_start_time is None:
+                self.frontal_start_time = now
+
+            elapsed = now - self.frontal_start_time
+
+            if elapsed >= FRONTAL_HOLD_SECONDS and not self.has_announced:
+                self.greeting_triggered = True
+                self.has_announced = True
+            return
+
+        # 얼굴이 안 보이는 경우
+        self.frontal_start_time = None
+        self.has_announced = False
+
+        if self.last_seen_time is not None:
+            missing_elapsed = now - self.last_seen_time
+            if missing_elapsed >= NO_FACE_TIMEOUT_SECONDS:
+                self.no_face_triggered = True
 
     def consume_greeting_trigger(self) -> bool:
         if self.greeting_triggered:
@@ -52,10 +66,12 @@ class LiveFaceDetector:
             return True
         return False
 
-    def reset_frontal_state(self):
-        self.frontal_start_time = None
-        self.has_announced = False
-        self.greeting_triggered = False
+    def consume_no_face_trigger(self) -> bool:
+        if self.no_face_triggered:
+            self.no_face_triggered = False
+            self.last_seen_time = None
+            return True
+        return False
 
     def create(self):
         base_options = python.BaseOptions(model_asset_path=MODEL_PATH)
@@ -74,13 +90,6 @@ class LiveFaceDetector:
         self.detector.detect_async(mp_image, timestamp_ms)
 
     def is_frontal_face(self, detection) -> bool:
-        """
-        대략적인 정면 얼굴 판별:
-        - keypoint 4개(양눈, 코, 입)가 존재
-        - 코가 양눈 중앙 근처
-        - 입이 코 아래쪽
-        - 얼굴 bbox가 너무 작지 않음
-        """
         if not detection.categories:
             return False
 
@@ -96,11 +105,6 @@ class LiveFaceDetector:
         if keypoints is None or len(keypoints) < 4:
             return False
 
-        # MediaPipe face detector keypoints 순서:
-        # 0 left eye
-        # 1 right eye
-        # 2 nose tip
-        # 3 mouth
         left_eye = keypoints[0]
         right_eye = keypoints[1]
         nose = keypoints[2]
@@ -113,10 +117,8 @@ class LiveFaceDetector:
 
         if nose_eye_offset > 0.08:
             return False
-
         if not mouth_below_nose:
             return False
-
         if eye_distance < 0.06:
             return False
 
