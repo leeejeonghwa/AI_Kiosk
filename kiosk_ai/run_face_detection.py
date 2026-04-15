@@ -5,6 +5,7 @@ import cv2
 
 from config import MODEL_PATH, CAMERA_INDEX, WINDOW_NAME, EXIT_KEY
 from face_detection import LiveFaceDetector
+from tts_service import TTSService
 
 
 def main():
@@ -17,7 +18,8 @@ def main():
         print("[오류] 웹캠을 열 수 없습니다.")
         sys.exit(1)
 
-    detector = LiveFaceDetector()
+    tts_service = TTSService()
+    detector = LiveFaceDetector(tts_service=tts_service)
     detector.create()
 
     print("[시작] 웹캠 얼굴 감지 시작")
