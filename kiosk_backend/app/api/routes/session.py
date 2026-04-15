@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.services.detection_service import reset_state
+from kiosk_backend.app.services.camera_detection_service import reset_state
 
 router = APIRouter()
 

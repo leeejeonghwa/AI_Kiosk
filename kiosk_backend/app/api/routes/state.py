@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.services.detection_service import get_current_state
+from app.services.camera_detection_service import get_current_state
 
 router = APIRouter()
 
