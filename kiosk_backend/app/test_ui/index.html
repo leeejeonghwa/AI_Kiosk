@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Kiosk State Monitor</title>
+    <style>
+        body { font-family: Arial; text-align: center; margin-top: 50px; }
+        .state { font-size: 40px; font-weight: bold; margin: 20px; }
+        .IDLE { color: gray; }
+        .USER_DETECTED { color: blue; }
+        .GREETING { color: green; }
+        .LISTENING { color: orange; }
+    </style>
+</head>
+<body>
+
+    <h1>AI Kiosk 상태 모니터</h1>
+
+    <div id="state" class="state">Loading...</div>
+
+    <button onclick="sendDetection()">사람 감지</button>
+    <button onclick="startGreeting()">인사 시작</button>
+    <button onclick="startListening()">Listening</button>
+    <button onclick="resetSession()">Reset</button>
+
+    <script>
+        async function fetchState() {
+            const res = await fetch('/api/state');
+            const data = await res.json();
+
+            const stateDiv = document.getElementById('state');
+            stateDiv.innerText = data.current_state;
+            stateDiv.className = "state " + data.current_state;
+        }
+
+        async function sendDetection() {
+            await fetch('/api/detection', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ detected: true })
+            });
+            fetchState();
+        }
+
+        async function startGreeting() {
+            await fetch('/api/greeting', { method: 'POST' });
+            fetchState();
+        }
+
+        async function startListening() {
+            await fetch('/api/listening', { method: 'POST' });
+            fetchState();
+        }
+
+        async function resetSession() {
+            await fetch('/api/session/reset', { method: 'POST' });
+            fetchState();
+        }
+
+        setInterval(fetchState, 1000);
+        fetchState();
+    </script>
+
+</body>
+</html>
