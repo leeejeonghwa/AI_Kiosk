@@ -12,6 +12,7 @@ __pycache__/
 venv/
 .env/
 .venv/
+.vscode/
 
 # OS
 .DS_Store
