@@ -42,3 +42,6 @@ class TTSService:
                     self.is_speaking = False
 
         threading.Thread(target=_run, daemon=False).start()
+
+
+tts_service = TTSService()
