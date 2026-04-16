@@ -5,6 +5,7 @@ import cv2
 from app.core.state_store import state_store
 from ai.config import CAMERA_INDEX
 from ai.face_detection import LiveFaceDetector
+from ai.tts_service import tts_service
 
 
 class CameraDetectionService:
@@ -123,6 +124,7 @@ class CameraDetectionService:
         if detection_result.get("state") == "USER_DETECTED":
             greeting_result = state_store.start_greeting()
             self.last_trigger_time = now
+            tts_service.speak_async("안녕하세요. 무엇을 도와드릴까요?")
 
             print(
                 "[INFO] Greeting started | "
@@ -136,8 +138,15 @@ class CameraDetectionService:
         print(f"[INFO] no face current_state={current_state}")
 
         if current_state in ["USER_DETECTED", "GREETING", "LISTENING"]:
-            reset_result = state_store.reset()
-            print(f"[INFO] no face detected -> reset to IDLE | result={reset_result}")
+            tts_service.speak_async("안녕히 가세요.")
+
+            def _reset_after_farewell():
+                time.sleep(3.0)
+                state_store.reset()
+                print("[INFO] farewell 완료 -> IDLE 복귀")
+
+            threading.Thread(target=_reset_after_farewell, daemon=True).start()
+            print("[INFO] farewell TTS 시작, 3초 후 IDLE 복귀 예정")
 
 
 camera_detection_service = CameraDetectionService()
