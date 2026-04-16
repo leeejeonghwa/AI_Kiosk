@@ -3,9 +3,9 @@ import threading
 import cv2
 
 from app.core.state_store import state_store
-from ai.config import CAMERA_INDEX
-from ai.face_detection import LiveFaceDetector
-from ai.tts_service import tts_service
+from ai_mod.config import CAMERA_INDEX
+from ai_mod.face_detection import LiveFaceDetector
+from ai_mod.tts_service import tts_service
 
 
 class CameraDetectionService:
