@@ -5,7 +5,8 @@ from faster_whisper import WhisperModel
 
 
 class STTService:
-    def __init__(self):
+    def __init__(self, input_device=None):
+        self.input_device = input_device
         self.model = WhisperModel(
             "base",
             device="cpu",
@@ -18,7 +19,8 @@ class STTService:
             int(seconds * samplerate),
             samplerate=samplerate,
             channels=1,
-            dtype="int16"
+            dtype="int16",
+            device=self.input_device,
         )
         sd.wait()
         print("[STT] 녹음 종료")
