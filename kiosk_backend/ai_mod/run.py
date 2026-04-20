@@ -1,12 +1,32 @@
 import os
 import sys
 import time
+import threading
 import cv2
 
 from config import MODEL_PATH, CAMERA_INDEX, WINDOW_NAME, EXIT_KEY
 from face_detection import LiveFaceDetector
 from tts_service import TTSService
 from stt_service import STTService
+from llm_service import LLMService
+
+
+def run_conversation(tts_service, stt_service, llm_service, done_callback):
+    greet_message = "안녕하세요. 질문 있으세요?"
+    print(f"[TTS] {greet_message}")
+    tts_service.speak_blocking(greet_message)
+
+    user_text = stt_service.transcribe(seconds=4)
+    if user_text:
+        print(f"[STT 결과] {user_text}")
+        answer = llm_service.generate_answer(user_text)
+        print(f"[LLM 답변] {answer}")
+        tts_service.speak_blocking(answer)
+    else:
+        print("[STT 결과] 없음")
+        tts_service.speak_blocking("질문을 듣지 못했어요. 다시 말씀해 주세요.")
+
+    done_callback()
 
 
 def main():
@@ -20,13 +40,20 @@ def main():
         sys.exit(1)
 
     tts_service = TTSService()
-    stt_service = STTService()
-    detector = LiveFaceDetector(tts_service=tts_service)
+    stt_service = STTService(input_device=1)   # 필요하면 마이크 번호 변경
+    llm_service = LLMService(model_name="exaone3.5:2.4b")
+
+    detector = LiveFaceDetector()
     detector.create()
+
+    is_conversation_running = False
+
+    def on_conversation_done():
+        nonlocal is_conversation_running
+        is_conversation_running = False
 
     print("[시작] 웹캠 얼굴 감지 시작")
     print(f"[종료] '{EXIT_KEY}' 키를 누르세요.")
-    print("[STT] 's' 키를 누르면 4초 동안 음성을 녹음하고 텍스트로 변환합니다.")
 
     try:
         while True:
@@ -41,19 +68,16 @@ def main():
             output = detector.draw(frame.copy())
             cv2.imshow(WINDOW_NAME, output)
 
-            key = cv2.waitKey(1) & 0xFF
+            if detector.consume_greeting_trigger() and not is_conversation_running:
+                is_conversation_running = True
+                threading.Thread(
+                    target=run_conversation,
+                    args=(tts_service, stt_service, llm_service, on_conversation_done),
+                    daemon=True,
+                ).start()
 
-            if key == ord(EXIT_KEY):
+            if cv2.waitKey(1) & 0xFF == ord(EXIT_KEY):
                 break
-
-            if key == ord("s"):
-                print("[STT] 음성 인식을 시작합니다.")
-                text = stt_service.transcribe(seconds=4)
-
-                if text:
-                    print(f"[STT 결과] {text}")
-                else:
-                    print("[STT 결과] 인식된 음성이 없습니다.")
 
     finally:
         detector.close()
