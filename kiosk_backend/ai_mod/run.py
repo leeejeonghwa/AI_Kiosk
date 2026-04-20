@@ -41,8 +41,7 @@ def main():
 
     tts_service = TTSService()
     stt_service = STTService(input_device=1)   # 필요하면 마이크 번호 변경
-    llm_service = LLMService(model_name="exaone3.5:2.4b")
-
+    llm_service = LLMService(model_name="exaone3.5:2.4b") #필요하면 모델 변경
     detector = LiveFaceDetector()
     detector.create()
 
