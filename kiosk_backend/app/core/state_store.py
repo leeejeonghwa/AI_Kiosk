@@ -140,6 +140,14 @@ class StateStore:
         return {"success": True, "state": self._state.current_state}
 
     def back_to_listening(self) -> dict:
+        if self._state.current_state == "LISTENING":
+            return {
+                "success": True,
+                "message": "already listening",
+                "state": self._state.current_state,
+                "session_id": self._state.session_id,
+                "message_text": self._state.message_text,
+            }
         if self._state.current_state != "RESPONDING":
             return {
                 "success": False,

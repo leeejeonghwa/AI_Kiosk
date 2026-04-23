@@ -136,15 +136,17 @@ class CameraDetectionService:
             conversation_service.stop()
 
             def _farewell_and_reset():
-                # 현재 재생 중인 TTS가 있으면 끝날 때까지 대기 (최대 5초)
-                waited = 0.0
-                while tts_service.is_speaking and waited < 5.0:
-                    time.sleep(0.1)
-                    waited += 0.1
-                tts_service.speak_blocking("안녕히 가세요.")
-                time.sleep(1.0)
-                state_store.reset()
-                print("[INFO] farewell 완료 -> IDLE 복귀")
+                try:
+                    # 현재 재생 중인 TTS가 있으면 끝날 때까지 대기 (최대 5초)
+                    waited = 0.0
+                    while tts_service.is_speaking and waited < 5.0:
+                        time.sleep(0.1)
+                        waited += 0.1
+                    tts_service.speak_blocking("안녕히 가세요.")
+                    time.sleep(1.0)
+                finally:
+                    state_store.reset()
+                    print("[INFO] farewell 완료 -> IDLE 복귀")
 
             threading.Thread(target=_farewell_and_reset, daemon=True).start()
             print("[INFO] farewell TTS 시작 예정")

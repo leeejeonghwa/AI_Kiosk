@@ -4,7 +4,7 @@ import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
-from config import (
+from ai_mod.config import (
     MODEL_PATH,
     MIN_DETECTION_CONFIDENCE,
     MIN_SUPPRESSION_THRESHOLD,
