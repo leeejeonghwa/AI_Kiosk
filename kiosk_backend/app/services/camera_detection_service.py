@@ -6,6 +6,7 @@ from app.core.state_store import state_store
 from ai_mod.config import CAMERA_INDEX
 from ai_mod.face_detection import LiveFaceDetector
 from ai_mod.tts_service import tts_service
+from app.services.conversation_service import conversation_service
 
 
 class CameraDetectionService:
@@ -91,12 +92,10 @@ class CameraDetectionService:
                 time.sleep(0.1)
                 continue
 
-            # 정면 얼굴 1초 유지 -> 인사 시작
             if self.detector.consume_greeting_trigger():
                 print("[INFO] greeting trigger detected")
                 self._handle_detected_user()
 
-            # 얼굴이 일정 시간 사라짐 -> IDLE 복귀
             if self.detector.consume_no_face_trigger():
                 print("[INFO] no face trigger detected")
                 self._handle_no_face()
@@ -112,24 +111,20 @@ class CameraDetectionService:
 
         current = state_store.get_state()
         current_state = current.get("current_state")
-        print(f"[INFO] current_state={current_state}")
 
         if current_state != "IDLE":
             print("[INFO] trigger ignored because state is not IDLE")
             return
 
         detection_result = state_store.handle_detection(detected=True)
-        print(f"[INFO] detection_result={detection_result}")
 
         if detection_result.get("state") == "USER_DETECTED":
             greeting_result = state_store.start_greeting()
             self.last_trigger_time = now
-            tts_service.speak_async("안녕하세요. 무엇을 도와드릴까요?")
-
+            conversation_service.start()
             print(
                 "[INFO] Greeting started | "
-                f"session_id={greeting_result.get('session_id')} | "
-                f"message={greeting_result.get('message_text')}"
+                f"session_id={greeting_result.get('session_id')}"
             )
 
     def _handle_no_face(self) -> None:
@@ -137,16 +132,22 @@ class CameraDetectionService:
         current_state = current.get("current_state")
         print(f"[INFO] no face current_state={current_state}")
 
-        if current_state in ["USER_DETECTED", "GREETING", "LISTENING"]:
-            tts_service.speak_async("안녕히 가세요.")
+        if current_state in ["USER_DETECTED", "GREETING", "LISTENING", "PROCESSING", "RESPONDING"]:
+            conversation_service.stop()
 
-            def _reset_after_farewell():
-                time.sleep(3.0)
+            def _farewell_and_reset():
+                # 현재 재생 중인 TTS가 있으면 끝날 때까지 대기 (최대 5초)
+                waited = 0.0
+                while tts_service.is_speaking and waited < 5.0:
+                    time.sleep(0.1)
+                    waited += 0.1
+                tts_service.speak_blocking("안녕히 가세요.")
+                time.sleep(1.0)
                 state_store.reset()
                 print("[INFO] farewell 완료 -> IDLE 복귀")
 
-            threading.Thread(target=_reset_after_farewell, daemon=True).start()
-            print("[INFO] farewell TTS 시작, 3초 후 IDLE 복귀 예정")
+            threading.Thread(target=_farewell_and_reset, daemon=True).start()
+            print("[INFO] farewell TTS 시작 예정")
 
 
 camera_detection_service = CameraDetectionService()
