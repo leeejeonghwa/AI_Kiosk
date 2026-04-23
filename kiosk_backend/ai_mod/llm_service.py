@@ -1,43 +1,67 @@
-import requests
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+MODEL_DIR = "./qwen2.5-1.5b-wanju"
 
 
 class LLMService:
-    def __init__(self, model_name="qwen2.5:3b", base_url="http://localhost:11434"):
-        self.model_name = model_name
-        self.base_url = base_url.rstrip("/")
+    def __init__(self, model_dir: str = MODEL_DIR):
+        print(f"[LLM] 모델 로딩 중: {model_dir}")
+
+        self.tokenizer = AutoTokenizer.from_pretrained(model_dir)
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_dir,
+            dtype=torch.float16,
+            device_map="auto",
+        )
+
+        self.model.eval()
+        print("[LLM] 모델 로딩 완료")
 
     def generate_answer(self, user_text: str) -> str:
         user_text = (user_text or "").strip()
         if not user_text:
             return "질문을 잘 듣지 못했어요. 다시 말씀해 주세요."
 
-        prompt = f"""
-당신은 회사 안내 키오스크 AI입니다.
-사용자의 질문에 한국어로 자연스럽고 간결하게 답변하세요.
-모르는 내용은 아는 척하지 말고, 정확하지 않으면 정확한 정보가 필요하다고 말하세요.
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "당신은 안내 키오스크 AI입니다. "
+                    "사용자의 질문에 한국어로 자연스럽고 간결하게 답변하세요. "
+                    "모르는 내용은 아는 척하지 말고, 담당자에게 문의하라고 안내하세요."
+                ),
+            },
+            {"role": "user", "content": user_text},
+        ]
 
-사용자 질문:
-{user_text}
-""".strip()
+        prompt = self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
 
-        try:
-            response = requests.post(
-                f"{self.base_url}/api/generate",
-                json={
-                    "model": self.model_name,
-                    "prompt": prompt,
-                    "stream": False,
-                },
-                timeout=120,
+        inputs = self.tokenizer(
+            prompt,
+            return_tensors="pt",
+            truncation=True,
+        )
+
+        inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
+
+        with torch.no_grad():
+            output_ids = self.model.generate(
+                input_ids=inputs["input_ids"],
+                attention_mask=inputs["attention_mask"],
+                max_new_tokens=128,
+                do_sample=False,
+                repetition_penalty=1.1,
+                pad_token_id=self.tokenizer.eos_token_id,
+                eos_token_id=self.tokenizer.eos_token_id,
             )
-            response.raise_for_status()
-            data = response.json()
 
-            answer = data.get("response", "").strip()
-            if not answer:
-                return "답변을 생성하지 못했습니다."
-            return answer
+        input_length = inputs["input_ids"].shape[-1]
+        new_tokens = output_ids[0][input_length:]
+        answer = self.tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
 
-        except requests.exceptions.RequestException as e:
-            print(f"[LLM 오류] {e}")
-            return "현재 AI 응답 서비스를 사용할 수 없습니다."
+        return answer if answer else "답변을 생성하지 못했습니다."

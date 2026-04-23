@@ -11,20 +11,30 @@ from stt_service import STTService
 from llm_service import LLMService
 
 
-def run_conversation(tts_service, stt_service, llm_service, done_callback):
-    greet_message = "안녕하세요. 질문 있으세요?"
-    print(f"[TTS] {greet_message}")
-    tts_service.speak_blocking(greet_message)
+def run_conversation(tts_service, stt_service, llm_service, detector, stop_event, done_callback):
+    tts_service.speak_blocking("안녕하세요. 질문 있으세요?")
 
-    user_text = stt_service.transcribe(seconds=4)
-    if user_text:
+    answered = False
+    while detector.was_detected and not stop_event.is_set():
+        if answered:
+            tts_service.speak_blocking("더 궁금한 점 있으세요?")
+
+        user_text = stt_service.transcribe(seconds=4)
+
+        if stop_event.is_set():
+            break
+
+        if not user_text:
+            print("[STT 결과] 없음")
+            tts_service.speak_blocking("질문을 듣지 못했어요. 다시 말씀해 주세요.")
+            answered = False
+            continue
+
         print(f"[STT 결과] {user_text}")
         answer = llm_service.generate_answer(user_text)
         print(f"[LLM 답변] {answer}")
         tts_service.speak_blocking(answer)
-    else:
-        print("[STT 결과] 없음")
-        tts_service.speak_blocking("질문을 듣지 못했어요. 다시 말씀해 주세요.")
+        answered = True
 
     done_callback()
 
@@ -41,11 +51,12 @@ def main():
 
     tts_service = TTSService()
     stt_service = STTService(input_device=1)   # 필요하면 마이크 번호 변경
-    llm_service = LLMService(model_name="exaone3.5:2.4b") #필요하면 모델 변경
+    llm_service = LLMService()
     detector = LiveFaceDetector()
     detector.create()
 
     is_conversation_running = False
+    stop_event = threading.Event()
 
     def on_conversation_done():
         nonlocal is_conversation_running
@@ -71,11 +82,12 @@ def main():
                 is_conversation_running = True
                 threading.Thread(
                     target=run_conversation,
-                    args=(tts_service, stt_service, llm_service, on_conversation_done),
+                    args=(tts_service, stt_service, llm_service, detector, stop_event, on_conversation_done),
                     daemon=True,
                 ).start()
 
             if cv2.waitKey(1) & 0xFF == ord(EXIT_KEY):
+                stop_event.set()
                 break
 
     finally:

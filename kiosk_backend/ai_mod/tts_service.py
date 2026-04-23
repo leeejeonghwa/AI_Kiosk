@@ -41,7 +41,7 @@ class TTSService:
                 with self.lock:
                     self.is_speaking = False
 
-        threading.Thread(target=_run, daemon=False).start()
+        threading.Thread(target=_run, daemon=True).start()
 
     def speak_blocking(self, text: str):
         """TTS가 완전히 끝날 때까지 블로킹."""
@@ -69,7 +69,7 @@ class TTSService:
             finally:
                 done.set()
 
-        threading.Thread(target=_run, daemon=False).start()
+        threading.Thread(target=_run, daemon=True).start()
         done.wait()
 
 
