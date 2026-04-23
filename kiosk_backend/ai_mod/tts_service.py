@@ -45,6 +45,11 @@ class TTSService:
 
     def speak_blocking(self, text: str):
         """TTS가 완전히 끝날 때까지 블로킹."""
+        with self.lock:
+            if self.is_speaking:
+                return
+            self.is_speaking = True
+
         done = threading.Event()
 
         def _run():
@@ -67,6 +72,8 @@ class TTSService:
             except Exception as e:
                 print(f"[TTS 오류] {e}")
             finally:
+                with self.lock:
+                    self.is_speaking = False
                 done.set()
 
         threading.Thread(target=_run, daemon=True).start()

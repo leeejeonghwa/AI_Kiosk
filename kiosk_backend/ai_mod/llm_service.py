@@ -1,7 +1,8 @@
+import os
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-MODEL_DIR = "./qwen2.5-1.5b-wanju"
+MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "qwen2.5-1.5b-wanju")
 
 
 class LLMService:
@@ -28,8 +29,8 @@ class LLMService:
                 "role": "system",
                 "content": (
                     "당신은 안내 키오스크 AI입니다. "
-                    "사용자의 질문에 한국어로 자연스럽고 간결하게 답변하세요. "
-                    "모르는 내용은 아는 척하지 말고, 담당자에게 문의하라고 안내하세요."
+                    "사용자의 질문에 한국어로 자연스럽고 100자이내로 간결하게 답변하세요. "
+                    "모르는 내용은 출력하지 말고,  담당자에게 문의하는 문구를 내보내도록 하세요."
                 ),
             },
             {"role": "user", "content": user_text},
