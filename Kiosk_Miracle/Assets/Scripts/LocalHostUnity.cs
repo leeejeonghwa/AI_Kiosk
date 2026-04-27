@@ -28,7 +28,7 @@ public class LocalHostUnity : MonoBehaviour
     private string lastState = null;
     public CharacterController characterController;
     public AdVideoPlayer adVideoPlayer;
-
+    
     void Start()
     {
         StartCoroutine(StatusPollingLoop());
