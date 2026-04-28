@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(& \"C:\\\\Users\\\\Administrator\\\\AppData\\\\Local\\\\Python\\\\bin\\\\python.exe\" -c \"import torch; print\\('torch:', torch.__version__\\); import transformers; print\\('transformers:', transformers.__version__\\)\" 2>&1)"
+    ]
+  }
+}
