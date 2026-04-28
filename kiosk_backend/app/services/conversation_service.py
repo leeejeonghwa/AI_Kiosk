@@ -121,13 +121,23 @@ class ConversationService:
                     break
 
                 state_store.start_processing(user_text)
-                tts_service.speak_blocking("생각중입니다. 잠시만 기다려주세요~")
 
-                try:
-                    answer = self._llm.generate_answer(user_text)
-                except Exception as e:
-                    print(f"[CONV][ERROR] LLM 호출 실패: {e}")
-                    answer = "죄송합니다. 답변을 생성하지 못했습니다."
+                llm_result = [None]
+                llm_done = threading.Event()
+
+                def _run_llm():
+                    try:
+                        llm_result[0] = self._llm.generate_answer(user_text)
+                    except Exception as e:
+                        print(f"[CONV][ERROR] LLM 호출 실패: {e}")
+                        llm_result[0] = "죄송합니다. 답변을 생성하지 못했습니다."
+                    finally:
+                        llm_done.set()
+
+                threading.Thread(target=_run_llm, daemon=True).start()
+                tts_service.speak_blocking("생각중입니다. 잠시만 기다려주세요~")
+                llm_done.wait()
+                answer = llm_result[0]
 
                 print(f"[CONV] LLM answer: '{answer}'")
 
