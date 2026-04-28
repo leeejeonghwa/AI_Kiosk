@@ -1,13 +1,46 @@
+import asyncio
+import os
+import tempfile
 import threading
-import pyttsx3
+
+import edge_tts
+import pygame
+
+VOICE = "ko-KR-SunHiNeural"
+PITCH = "+15Hz"
+RATE = "+10%"
+
+pygame.mixer.init()
 
 
 class TTSService:
-    def __init__(self, rate: int = 165, volume: float = 1.0):
+    def __init__(self, voice: str = VOICE, pitch: str = PITCH, rate: str = RATE):
+        self.voice = voice
+        self.pitch = pitch
         self.rate = rate
-        self.volume = volume
         self.is_speaking = False
         self.lock = threading.Lock()
+
+    def _synthesize_and_play(self, text: str):
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
+                tmp_path = f.name
+
+            asyncio.run(edge_tts.Communicate(text, self.voice, pitch=self.pitch, rate=self.rate).save(tmp_path))
+
+            pygame.mixer.music.load(tmp_path)
+            pygame.mixer.music.play()
+            while pygame.mixer.music.get_busy():
+                pygame.time.wait(50)
+        except Exception as e:
+            print(f"[TTS 오류] {e}")
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
 
     def speak_async(self, text: str):
         with self.lock:
@@ -17,26 +50,7 @@ class TTSService:
 
         def _run():
             try:
-                engine = pyttsx3.init()
-                engine.setProperty("rate", self.rate)
-                engine.setProperty("volume", self.volume)
-
-                # 한국어 음성 선택 시도
-                try:
-                    voices = engine.getProperty("voices")
-                    for voice in voices:
-                        name = getattr(voice, "name", "")
-                        if "Korean" in name or "Heami" in name or "한국어" in name:
-                            engine.setProperty("voice", voice.id)
-                            break
-                except Exception:
-                    pass
-
-                engine.say(text)
-                engine.runAndWait()
-                engine.stop()
-            except Exception as e:
-                print(f"[TTS 오류] {e}")
+                self._synthesize_and_play(text)
             finally:
                 with self.lock:
                     self.is_speaking = False
@@ -44,7 +58,6 @@ class TTSService:
         threading.Thread(target=_run, daemon=True).start()
 
     def speak_blocking(self, text: str):
-        """TTS가 완전히 끝날 때까지 블로킹."""
         with self.lock:
             if self.is_speaking:
                 return
@@ -54,23 +67,7 @@ class TTSService:
 
         def _run():
             try:
-                engine = pyttsx3.init()
-                engine.setProperty("rate", self.rate)
-                engine.setProperty("volume", self.volume)
-                try:
-                    voices = engine.getProperty("voices")
-                    for voice in voices:
-                        name = getattr(voice, "name", "")
-                        if "Korean" in name or "Heami" in name or "한국어" in name:
-                            engine.setProperty("voice", voice.id)
-                            break
-                except Exception:
-                    pass
-                engine.say(text)
-                engine.runAndWait()
-                engine.stop()
-            except Exception as e:
-                print(f"[TTS 오류] {e}")
+                self._synthesize_and_play(text)
             finally:
                 with self.lock:
                     self.is_speaking = False
