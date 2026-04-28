@@ -5,6 +5,11 @@ from ai_mod.tts_service import tts_service
 from ai_mod.stt_service import STTService
 from ai_mod.llm_service import LLMService
 
+_END_KEYWORDS = [
+    "아니", "없어", "없습니다", "됐어", "괜찮아", "아니요", "아니오",
+    "아니에요", "그만", "됐습니다", "필요없어", "필요 없어", "없음", "안 있어",
+]
+
 
 class ConversationService:
     def __init__(self):
@@ -26,6 +31,10 @@ class ConversationService:
     def stop(self):
         self.running = False
         print("[CONV] conversation service stop requested")
+
+    def _is_end_of_conversation(self, text: str) -> bool:
+        text_lower = text.strip().lower()
+        return any(kw in text_lower for kw in _END_KEYWORDS)
 
     def inject_text(self, text: str):
         with self._inject_lock:
@@ -73,6 +82,8 @@ class ConversationService:
                 return
 
             first = True
+            follow_up = False
+
             while self.running:
                 if first:
                     result = state_store.start_listening()
@@ -102,7 +113,15 @@ class ConversationService:
                 if not user_text:
                     continue
 
+                if follow_up and self._is_end_of_conversation(user_text):
+                    print("[CONV] 대화 종료 감지")
+                    tts_service.speak_blocking("안녕히 가세요.")
+                    self.stop()
+                    state_store.reset()
+                    break
+
                 state_store.start_processing(user_text)
+                tts_service.speak_blocking("생각중입니다. 잠시만 기다려주세요~")
 
                 try:
                     answer = self._llm.generate_answer(user_text)
@@ -117,6 +136,8 @@ class ConversationService:
 
                 state_store.start_responding(answer)
                 tts_service.speak_blocking(answer)
+                tts_service.speak_blocking("다른 질문 있으세요?")
+                follow_up = True
 
         except Exception as e:
             print(f"[CONV][ERROR] conversation loop 예외 발생: {e}")
