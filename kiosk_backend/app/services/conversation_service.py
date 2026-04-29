@@ -19,6 +19,10 @@ class ConversationService:
         self._llm: LLMService | None = None
         self._injected_text: str | None = None
         self._inject_lock = threading.Lock()
+        self._on_end_callback = None
+
+    def set_on_end_callback(self, callback):
+        self._on_end_callback = callback
 
     def start(self):
         if self.running:
@@ -125,6 +129,8 @@ class ConversationService:
                     self._speak("안녕히 가세요.")
                     self.stop()
                     state_store.reset()
+                    if self._on_end_callback:
+                        self._on_end_callback()
                     break
 
                 state_store.start_processing(user_text)

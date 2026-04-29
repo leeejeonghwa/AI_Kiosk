@@ -47,6 +47,8 @@ class CameraDetectionService:
                 self.cap = None
             return
 
+        conversation_service.set_on_end_callback(self._on_conversation_end)
+
         self.running = True
         self.thread = threading.Thread(target=self._run_loop, daemon=True)
         self.thread.start()
@@ -127,6 +129,11 @@ class CameraDetectionService:
                 f"session_id={greeting_result.get('session_id')}"
             )
 
+    def _on_conversation_end(self) -> None:
+        if self.detector:
+            self.detector.reset_detection_state()
+        print("[INFO] conversation ended → detector state reset")
+
     def _handle_no_face(self) -> None:
         current = state_store.get_state()
         current_state = current.get("current_state")
@@ -137,15 +144,18 @@ class CameraDetectionService:
 
             def _farewell_and_reset():
                 try:
-                    # 현재 재생 중인 TTS가 있으면 끝날 때까지 대기 (최대 5초)
                     waited = 0.0
                     while tts_service.is_speaking and waited < 5.0:
                         time.sleep(0.1)
                         waited += 0.1
+                    state_store.set_speaking("안녕히 가세요.")
                     tts_service.speak_blocking("안녕히 가세요.")
+                    state_store.set_speaking_done()
                     time.sleep(1.0)
                 finally:
                     state_store.reset()
+                    if self.detector:
+                        self.detector.reset_detection_state()
                     print("[INFO] farewell 완료 -> IDLE 복귀")
 
             threading.Thread(target=_farewell_and_reset, daemon=True).start()

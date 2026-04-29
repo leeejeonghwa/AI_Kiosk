@@ -130,8 +130,7 @@ public class LocalHostUnity : MonoBehaviour
                 break;
 
             case "PROCESSING":
-                // JS: data.user_text ? `"${data.user_text}"` : '';
-                aiText.text = !string.IsNullOrEmpty(data.user_text) ? $"\"{data.user_text}\"" : "";
+                aiText.text = "";
                 characterController.Think();
                 break;
 
@@ -150,7 +149,7 @@ public class LocalHostUnity : MonoBehaviour
     {
         if (subtitleObject == null || subtitleText == null) return;
 
-        if (isSpeaking && !string.IsNullOrEmpty(text))
+        if (!string.IsNullOrEmpty(text))
         {
             subtitleText.text = text;
             subtitleObject.SetActive(true);
