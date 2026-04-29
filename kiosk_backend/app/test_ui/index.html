@@ -192,7 +192,6 @@
     <div id="processingScreen" class="screen">
         <h1>AI 키오스크</h1>
         <div id="processingMessage">⏳ 답변을 생각하는 중...</div>
-        <div id="userTextDisplay"></div>
     </div>
 
     <!-- 응답 화면 -->
@@ -244,7 +243,7 @@
             const text = document.getElementById('subtitleText');
             const debugSpeaking = document.getElementById('speakingText');
 
-            if (data.is_speaking && data.speaking_text) {
+            if (data.speaking_text) {
                 text.innerText = data.speaking_text;
                 bar.classList.add('visible');
                 debugSpeaking.innerText = data.speaking_text;
@@ -286,8 +285,6 @@
             } else if (state === 'LISTENING') {
                 showScreen('listeningScreen');
             } else if (state === 'PROCESSING') {
-                document.getElementById('userTextDisplay').innerText =
-                    data.user_text ? `"${data.user_text}"` : '';
                 showScreen('processingScreen');
             } else if (state === 'RESPONDING') {
                 document.getElementById('respondingMessage').innerText =

@@ -186,7 +186,6 @@ class StateStore:
 
     def set_speaking_done(self) -> None:
         self._state.is_speaking = False
-        self._state.speaking_text = None
 
     def reset(self) -> dict:
         self._state = KioskState()
