@@ -2,7 +2,7 @@ import json
 import os
 from rank_bm25 import BM25Okapi
 
-TRAIN_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "train_last.jsonl")
+TRAIN_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "train_last.jsonl")
 
 
 class RAGService:
