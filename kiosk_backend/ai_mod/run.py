@@ -19,7 +19,7 @@ def run_conversation(tts_service, stt_service, llm_service, detector, stop_event
         if answered:
             tts_service.speak_blocking("더 궁금한 점 있으세요?")
 
-        user_text = stt_service.transcribe(seconds=4)
+        user_text = stt_service.transcribe(seconds=10)
 
         if stop_event.is_set():
             break

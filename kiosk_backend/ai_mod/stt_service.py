@@ -8,12 +8,12 @@ class STTService:
     def __init__(self, input_device=None):
         self.input_device = input_device
         self.model = WhisperModel(
-            "base",
+            "small",
             device="cpu",
             compute_type="int8"
         )
 
-    def record(self, seconds=4, samplerate=16000):
+    def record(self, seconds=10, samplerate=16000):
         print("[STT] 녹음 시작...")
         audio = sd.rec(
             int(seconds * samplerate),
@@ -37,7 +37,7 @@ class STTService:
 
         return temp.name
 
-    def transcribe(self, seconds=4):
+    def transcribe(self, seconds=10):
         audio, sr = self.record(seconds=seconds)
         wav_path = self.save_wav(audio, sr)
 
