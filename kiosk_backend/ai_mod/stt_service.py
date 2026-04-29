@@ -37,7 +37,7 @@ class STTService:
 
         return temp.name
 
-    def transcribe(self, seconds=4):
+    def transcribe(self, seconds=15):
         audio, sr = self.record(seconds=seconds)
         wav_path = self.save_wav(audio, sr)
 
