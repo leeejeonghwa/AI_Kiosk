@@ -17,3 +17,9 @@ venv/
 # OS
 .DS_Store
 .CLAUDE.md
+
+# Model files
+output/
+qwen2.5-1.5b-base/
+qwen2.5-1.5b-wanju/
+*.jsonl
