@@ -39,7 +39,7 @@ class LLMService:
             base_model,
             LORA_DIR,
             local_files_only=True,
-        )
+        ).merge_and_unload()
 
         self.model.eval()
         self.rag = RAGService()

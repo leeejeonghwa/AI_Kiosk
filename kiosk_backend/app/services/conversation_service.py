@@ -1,3 +1,4 @@
+import os
 import threading
 
 from app.core.state_store import state_store
@@ -52,15 +53,6 @@ class ConversationService:
         finally:
             state_store.set_speaking_done()
 
-    def _get_user_input(self) -> str:
-        with self._inject_lock:
-            if self._injected_text:
-                text = self._injected_text
-                self._injected_text = None
-                print(f"[CONV] using injected text: {text}")
-                return text
-        return self._stt.transcribe(seconds=7)
-
     def _run(self):
         print("[CONV] conversation loop started")
 
@@ -111,22 +103,53 @@ class ConversationService:
                     break
 
                 print("[CONV] waiting for user input...")
-                try:
-                    user_text = self._get_user_input()
-                except Exception as e:
-                    print(f"[CONV][ERROR] STT 실패: {e}")
-                    user_text = ""
+
+                with self._inject_lock:
+                    injected = self._injected_text
+                    self._injected_text = None
+
+                if injected:
+                    print(f"[CONV] using injected text: {injected}")
+                    user_text = injected
+                    waiting_done = threading.Event()
+                    waiting_done.set()
+                else:
+                    try:
+                        audio, sr = self._stt.record(seconds=7)
+                    except Exception as e:
+                        print(f"[CONV][ERROR] STT 녹음 실패: {e}")
+                        continue
+
+                    wav_path = self._stt.save_wav(audio, sr)
+                    waiting_done = threading.Event()
+
+                    def _play_waiting(event=waiting_done):
+                        self._speak("잠시만 기다려주세요.")
+                        event.set()
+
+                    threading.Thread(target=_play_waiting, daemon=True).start()
+
+                    try:
+                        user_text = self._stt.transcribe_wav(wav_path)
+                    except Exception as e:
+                        print(f"[CONV][ERROR] STT 인식 실패: {e}")
+                        user_text = ""
+                    finally:
+                        os.unlink(wav_path)
 
                 print(f"[CONV] user input: '{user_text}'")
 
                 if not self.running:
+                    waiting_done.wait()
                     break
 
                 if not user_text:
+                    waiting_done.wait()
                     continue
 
                 if follow_up and self._is_end_of_conversation(user_text):
                     print("[CONV] 대화 종료 감지")
+                    waiting_done.wait()
                     self._speak("안녕히 가세요.")
                     self.stop()
                     state_store.reset()
@@ -139,9 +162,9 @@ class ConversationService:
                 llm_result = [None]
                 llm_done = threading.Event()
 
-                def _run_llm():
+                def _run_llm(ut=user_text):
                     try:
-                        llm_result[0] = self._llm.generate_answer(user_text)
+                        llm_result[0] = self._llm.generate_answer(ut)
                     except Exception as e:
                         print(f"[CONV][ERROR] LLM 호출 실패: {e}")
                         llm_result[0] = None
@@ -149,8 +172,8 @@ class ConversationService:
                         llm_done.set()
 
                 threading.Thread(target=_run_llm, daemon=True).start()
-                self._speak("생각중입니다. 잠시만 기다려주세요~")
                 llm_done.wait()
+                waiting_done.wait()
                 answer = llm_result[0]
 
                 print(f"[CONV] LLM answer: '{answer}'")
