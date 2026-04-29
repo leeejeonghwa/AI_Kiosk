@@ -41,6 +41,13 @@ class ConversationService:
             self._injected_text = text
         print(f"[CONV] text injected: {text}")
 
+    def _speak(self, text: str):
+        state_store.set_speaking(text)
+        try:
+            tts_service.speak_blocking(text)
+        finally:
+            state_store.set_speaking_done()
+
     def _get_user_input(self) -> str:
         with self._inject_lock:
             if self._injected_text:
@@ -72,7 +79,7 @@ class ConversationService:
             threading.Thread(target=_load_models, daemon=True).start()
 
             # 모델 로딩 중에 인사 TTS 재생
-            tts_service.speak_blocking("안녕하세요. 무엇을 도와드릴까요?")
+            self._speak("안녕하세요. 무엇을 도와드릴까요?")
 
             # 모델 로딩 완료 대기
             model_ready.wait()
@@ -115,7 +122,7 @@ class ConversationService:
 
                 if follow_up and self._is_end_of_conversation(user_text):
                     print("[CONV] 대화 종료 감지")
-                    tts_service.speak_blocking("안녕히 가세요.")
+                    self._speak("안녕히 가세요.")
                     self.stop()
                     state_store.reset()
                     break
@@ -135,7 +142,7 @@ class ConversationService:
                         llm_done.set()
 
                 threading.Thread(target=_run_llm, daemon=True).start()
-                tts_service.speak_blocking("생각중입니다. 잠시만 기다려주세요~")
+                self._speak("생각중입니다. 잠시만 기다려주세요~")
                 llm_done.wait()
                 answer = llm_result[0]
 
@@ -145,12 +152,12 @@ class ConversationService:
                     break
 
                 if answer is None:
-                    tts_service.speak_blocking("죄송합니다. 다시 말씀해주시겠어요?")
+                    self._speak("죄송합니다. 다시 말씀해주시겠어요?")
                     continue
 
                 state_store.start_responding(answer)
-                tts_service.speak_blocking(answer)
-                tts_service.speak_blocking("다른 질문 있으세요?")
+                self._speak(answer)
+                self._speak("다른 질문 있으세요?")
                 follow_up = True
 
         except Exception as e:

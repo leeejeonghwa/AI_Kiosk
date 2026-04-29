@@ -12,6 +12,8 @@ class KioskState:
     last_detected_at: Optional[str] = None
     message_text: Optional[str] = None
     user_text: Optional[str] = None
+    is_speaking: bool = False
+    speaking_text: Optional[str] = None
 
 
 class StateStore:
@@ -177,6 +179,14 @@ class StateStore:
             return self.reset()
 
         return None
+
+    def set_speaking(self, text: str) -> None:
+        self._state.is_speaking = True
+        self._state.speaking_text = text
+
+    def set_speaking_done(self) -> None:
+        self._state.is_speaking = False
+        self._state.speaking_text = None
 
     def reset(self) -> dict:
         self._state = KioskState()
