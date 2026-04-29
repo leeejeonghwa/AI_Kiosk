@@ -3,7 +3,7 @@ import re
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import PeftModel
-from ai_mod.rag_service import RAGService
+from .rag_service import RAGService
 
 ROOT_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..")
@@ -30,7 +30,7 @@ class LLMService:
 
         base_model = AutoModelForCausalLM.from_pretrained(
             BASE_MODEL_DIR,
-            torch_dtype=torch.float16,
+            torch_dtype=dtype,
             device_map="auto",
             local_files_only=True,
         )
@@ -54,10 +54,9 @@ class LLMService:
             {
                 "role": "system",
                 "content": (
-                    "You are a kiosk AI assistant. "
-                    "Always respond in Korean only. Never use Chinese, Japanese, English or any other language. "
-                    "Keep your answer under 100 Korean characters. "
-                    "If you don't know the answer, tell the user to contact the staff.\n\n"
+                    "당신은 완주군 키오스크 AI 안내원입니다. "
+                    "반드시 한국어로만 답변하고, 100자 이내로 간결하게 말하세요. "
+                    "모르는 내용은 직원에게 문의하라고 안내하세요.\n\n"
                     f"참고 정보:\n{self.rag.retrieve(user_text)}"
                 ),
             },
@@ -74,7 +73,7 @@ class LLMService:
             prompt,
             return_tensors="pt",
             truncation=True,
-            max_length=512,
+            max_length=2048,
         )
 
         inputs = {k: v.to(self.model.device) for k, v in inputs.items()}

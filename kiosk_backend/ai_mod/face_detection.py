@@ -71,6 +71,8 @@ class LiveFaceDetector:
     def reset_detection_state(self):
         self._reset_state()
         self.greeting_triggered = False
+        self.no_face_triggered = False
+        self.last_seen_time = None
 
     def consume_greeting_trigger(self) -> bool:
         if self.greeting_triggered:

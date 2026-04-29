@@ -38,13 +38,12 @@ class STTService:
         return temp.name
 
     def transcribe(self, seconds=7):
+        import os
         audio, sr = self.record(seconds=seconds)
         wav_path = self.save_wav(audio, sr)
-
-        segments, _ = self.model.transcribe(
-            wav_path,
-            language="ko"
-        )
-
-        text = " ".join(segment.text.strip() for segment in segments).strip()
-        return text
+        try:
+            segments, _ = self.model.transcribe(wav_path, language="ko")
+            text = " ".join(segment.text.strip() for segment in segments).strip()
+            return text
+        finally:
+            os.unlink(wav_path)

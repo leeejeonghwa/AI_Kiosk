@@ -164,6 +164,8 @@ class ConversationService:
 
                 state_store.start_responding(answer)
                 self._speak(answer)
+                if not self.running:
+                    break
                 self._speak("다른 질문 있으세요?")
                 follow_up = True
 
