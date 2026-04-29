@@ -59,7 +59,7 @@ class ConversationService:
                 self._injected_text = None
                 print(f"[CONV] using injected text: {text}")
                 return text
-        return self._stt.transcribe(seconds=4)
+        return self._stt.transcribe(seconds=7)
 
     def _run(self):
         print("[CONV] conversation loop started")

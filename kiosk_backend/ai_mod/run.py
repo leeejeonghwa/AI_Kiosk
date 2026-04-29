@@ -1,9 +1,10 @@
 import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
 import sys
 import time
 import threading
 import cv2
-
 from config import MODEL_PATH, CAMERA_INDEX, WINDOW_NAME, EXIT_KEY
 from face_detection import LiveFaceDetector
 from tts_service import TTSService
@@ -19,7 +20,7 @@ def run_conversation(tts_service, stt_service, llm_service, detector, stop_event
         if answered:
             tts_service.speak_blocking("더 궁금한 점 있으세요?")
 
-        user_text = stt_service.transcribe(seconds=10)
+        user_text = stt_service.transcribe(seconds=7)
 
         if stop_event.is_set():
             break

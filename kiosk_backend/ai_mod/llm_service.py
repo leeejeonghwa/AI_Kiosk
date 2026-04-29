@@ -30,7 +30,7 @@ class LLMService:
 
         base_model = AutoModelForCausalLM.from_pretrained(
             BASE_MODEL_DIR,
-            torch_dtype=dtype,
+            torch_dtype=torch.float16,
             device_map="auto",
             local_files_only=True,
         )

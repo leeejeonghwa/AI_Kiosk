@@ -1,46 +1,38 @@
-import asyncio
-import os
-import tempfile
 import threading
-
-import edge_tts
-import pygame
-
-VOICE = "ko-KR-SunHiNeural"
-PITCH = "+15Hz"
-RATE = "+10%"
-
-pygame.mixer.init()
+import pyttsx3
 
 
 class TTSService:
-    def __init__(self, voice: str = VOICE, pitch: str = PITCH, rate: str = RATE):
-        self.voice = voice
-        self.pitch = pitch
+    def __init__(self, rate: int = 175, volume: float = 1.0):
         self.rate = rate
+        self.volume = volume
         self.is_speaking = False
         self.lock = threading.Lock()
 
-    def _synthesize_and_play(self, text: str):
-        tmp_path = None
+    def _get_korean_voice(self, engine):
         try:
-            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
-                tmp_path = f.name
+            voices = engine.getProperty("voices")
+            for voice in voices:
+                name = getattr(voice, "name", "")
+                if "Korean" in name or "Heami" in name or "한국어" in name:
+                    return voice.id
+        except Exception:
+            pass
+        return None
 
-            asyncio.run(edge_tts.Communicate(text, self.voice, pitch=self.pitch, rate=self.rate).save(tmp_path))
-
-            pygame.mixer.music.load(tmp_path)
-            pygame.mixer.music.play()
-            while pygame.mixer.music.get_busy():
-                pygame.time.wait(50)
+    def _synthesize_and_play(self, text: str):
+        try:
+            engine = pyttsx3.init()
+            engine.setProperty("rate", self.rate)
+            engine.setProperty("volume", self.volume)
+            voice_id = self._get_korean_voice(engine)
+            if voice_id:
+                engine.setProperty("voice", voice_id)
+            engine.say(text)
+            engine.runAndWait()
+            engine.stop()
         except Exception as e:
             print(f"[TTS 오류] {e}")
-        finally:
-            if tmp_path and os.path.exists(tmp_path):
-                try:
-                    os.unlink(tmp_path)
-                except Exception:
-                    pass
 
     def speak_async(self, text: str):
         with self.lock:
