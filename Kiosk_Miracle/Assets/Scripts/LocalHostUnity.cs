@@ -11,6 +11,8 @@ public class ServerStatus
     public string session_id;    // JS의 data.session_id
     public string message_text;  // JS의 data.message_text (GREETING, RESPONDING 시 내용)
     public string user_text;     // JS의 data.user_text (PROCESSING 시 사용자가 말한 내용)
+    public bool   is_speaking;   // TTS 재생 중 여부
+    public string speaking_text; // 현재 TTS가 말하는 텍스트
 }
 
 public class LocalHostUnity : MonoBehaviour
@@ -25,7 +27,12 @@ public class LocalHostUnity : MonoBehaviour
     public GameObject mainScreen;
     public TMP_Text aiText;             // 메인 메시지 표시용
 
+    [Header("자막")]
+    public GameObject subtitleObject;   // 자막 패널 GameObject (Inspector에서 연결)
+    public TMP_Text subtitleText;       // 자막 텍스트 (Inspector에서 연결)
+
     private string lastState = null;
+    private string lastSpeakingText = null;
     public CharacterController characterController;
     public AdVideoPlayer adVideoPlayer;
     
@@ -61,12 +68,19 @@ public class LocalHostUnity : MonoBehaviour
                 if (request.result == UnityWebRequest.Result.Success)
                 {
                     ServerStatus data = JsonUtility.FromJson<ServerStatus>(request.downloadHandler.text);
-                    
-                    // JS의 if (currentState !== lastState) 로직
+
+                    // 상태 변화 처리
                     if (data.current_state != lastState)
                     {
                         HandleStateChange(data.current_state, data);
                         lastState = data.current_state;
+                    }
+
+                    // 자막 처리 (speaking_text 변화 감지)
+                    if (data.speaking_text != lastSpeakingText)
+                    {
+                        UpdateSubtitle(data.is_speaking, data.speaking_text);
+                        lastSpeakingText = data.speaking_text;
                     }
                 }
                 else
@@ -129,6 +143,22 @@ public class LocalHostUnity : MonoBehaviour
             default:
                 Log.Warn($"알 수 없는 상태: {state}");
                 break;
+        }
+    }
+
+    void UpdateSubtitle(bool isSpeaking, string text)
+    {
+        if (subtitleObject == null || subtitleText == null) return;
+
+        if (isSpeaking && !string.IsNullOrEmpty(text))
+        {
+            subtitleText.text = text;
+            subtitleObject.SetActive(true);
+        }
+        else
+        {
+            subtitleObject.SetActive(false);
+            subtitleText.text = "";
         }
     }
 
