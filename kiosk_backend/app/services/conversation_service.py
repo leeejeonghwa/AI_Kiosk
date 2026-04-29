@@ -130,7 +130,7 @@ class ConversationService:
                         llm_result[0] = self._llm.generate_answer(user_text)
                     except Exception as e:
                         print(f"[CONV][ERROR] LLM 호출 실패: {e}")
-                        llm_result[0] = "죄송합니다. 답변을 생성하지 못했습니다."
+                        llm_result[0] = None
                     finally:
                         llm_done.set()
 
@@ -143,6 +143,10 @@ class ConversationService:
 
                 if not self.running:
                     break
+
+                if answer is None:
+                    tts_service.speak_blocking("죄송합니다. 다시 말씀해주시겠어요?")
+                    continue
 
                 state_store.start_responding(answer)
                 tts_service.speak_blocking(answer)
