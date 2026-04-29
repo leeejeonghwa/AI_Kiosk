@@ -1,7 +1,9 @@
 import os
+import re
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import PeftModel
+from rag_service import RAGService
 
 ROOT_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..")
@@ -37,6 +39,7 @@ class LLMService:
         )
 
         self.model.eval()
+        self.rag = RAGService()
         print("[LLM] 모델 로딩 완료")
 
     def generate_answer(self, user_text: str) -> str:
@@ -48,9 +51,11 @@ class LLMService:
             {
                 "role": "system",
                 "content": (
-                    "당신은 안내 키오스크 AI입니다. "
-                    "사용자의 질문에 한국어로 자연스럽고 100자 이내로 간결하게 답변하세요. "
-                    "모르는 내용은 지어내지 말고 담당자에게 문의하라고 안내하세요."
+                    "You are a kiosk AI assistant. "
+                    "Always respond in Korean only. Never use Chinese, Japanese, English or any other language. "
+                    "Keep your answer under 100 Korean characters. "
+                    "If you don't know the answer, tell the user to contact the staff.\n\n"
+                    f"참고 정보:\n{self.rag.retrieve(user_text)}"
                 ),
             },
             {"role": "user", "content": user_text},
@@ -85,6 +90,9 @@ class LLMService:
         input_length = inputs["input_ids"].shape[-1]
         new_tokens = output_ids[0][input_length:]
         answer = self.tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+
+        # 한국어, 숫자, 공백, 기본 문장부호만 남김
+        answer = re.sub(r"[^가-힣㄰-㆏ᄀ-ᇿ0-9\s.,!?~%\-]", "", answer).strip()
 
         if len(answer) > 120:
             answer = answer[:120].strip() + "..."
