@@ -100,7 +100,11 @@ class CameraDetectionService:
 
             if self.detector.consume_no_face_trigger():
                 print("[INFO] no face trigger detected")
-                self._handle_no_face()
+                current_state = state_store.get_state().get("current_state")
+                if current_state == "IDLE":
+                    self.detector.reset_detection_state()
+                else:
+                    self._handle_no_face()
 
             time.sleep(0.03)
 
