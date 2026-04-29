@@ -3,7 +3,7 @@ import re
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import PeftModel
-from rag_service import RAGService
+from ai_mod.rag_service import RAGService
 
 ROOT_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..")
@@ -24,6 +24,9 @@ class LLMService:
 
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
+
+        dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+        print(f"[LLM] device: {'CUDA' if torch.cuda.is_available() else 'CPU'}, dtype: {dtype}")
 
         base_model = AutoModelForCausalLM.from_pretrained(
             BASE_MODEL_DIR,

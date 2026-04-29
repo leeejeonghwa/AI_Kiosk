@@ -150,10 +150,10 @@ class StateStore:
                 "session_id": self._state.session_id,
                 "message_text": self._state.message_text,
             }
-        if self._state.current_state != "RESPONDING":
+        if self._state.current_state not in ("RESPONDING", "PROCESSING"):
             return {
                 "success": False,
-                "message": "not in responding state",
+                "message": "not in responding or processing state",
                 "state": self._state.current_state,
             }
         self._state.current_state = "LISTENING"

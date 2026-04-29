@@ -90,6 +90,7 @@ class ConversationService:
 
             if self._stt is None or self._llm is None:
                 print("[CONV][ERROR] 모델 로딩 실패로 대화 불가")
+                state_store.reset()
                 return
 
             first = True
