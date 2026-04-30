@@ -26,12 +26,12 @@ class RAGService:
                     self.questions.append(q)
                     self.answers.append(a)
 
-        tokenized = [list(q) for q in self.questions]
+        tokenized = [q.split() for q in self.questions]
         self.bm25 = BM25Okapi(tokenized)
         print(f"[RAG] {len(self.questions)}개 Q&A 인덱싱 완료")
 
     def retrieve(self, query: str) -> str:
-        tokenized_query = list(query)
+        tokenized_query = query.split()
         scores = self.bm25.get_scores(tokenized_query)
         top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:self.top_k]
 

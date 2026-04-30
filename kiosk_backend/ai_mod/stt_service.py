@@ -1,3 +1,4 @@
+import os
 import tempfile
 import wave
 import sounddevice as sd
@@ -37,14 +38,14 @@ class STTService:
 
         return temp.name
 
+    def transcribe_wav(self, wav_path: str) -> str:
+        segments, _ = self.model.transcribe(wav_path, language="ko")
+        return " ".join(seg.text.strip() for seg in segments).strip()
+
     def transcribe(self, seconds=7):
         audio, sr = self.record(seconds=seconds)
         wav_path = self.save_wav(audio, sr)
-
-        segments, _ = self.model.transcribe(
-            wav_path,
-            language="ko"
-        )
-
-        text = " ".join(segment.text.strip() for segment in segments).strip()
-        return text
+        try:
+            return self.transcribe_wav(wav_path)
+        finally:
+            os.unlink(wav_path)
