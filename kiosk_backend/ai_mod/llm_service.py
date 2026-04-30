@@ -3,7 +3,10 @@ import re
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import PeftModel
-from .rag_service import RAGService
+try:
+    from .rag_service import RAGService
+except ImportError:
+    from rag_service import RAGService
 
 ROOT_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..")
@@ -45,16 +48,27 @@ class LLMService:
         self.rag = RAGService()
         print("[LLM] 모델 로딩 완료")
 
+    _FIXED_ANSWERS = [
+        (["이름", "누구"], "저는 미라키입니다."),
+        (["무슨 날", "무슨날", "오늘이 뭔", "오늘 뭔", "어떤 날"], "오늘은 어린이날입니다."),
+    ]
+
     def generate_answer(self, user_text: str) -> str:
         user_text = (user_text or "").strip()
         if not user_text:
             return "질문을 잘 듣지 못했어요. 다시 말씀해 주세요."
 
+        for keywords, answer in self._FIXED_ANSWERS:
+            if any(kw in user_text for kw in keywords):
+                return answer
+
         messages = [
             {
                 "role": "system",
                 "content": (
-                    "당신은 완주군 키오스크 AI 안내원입니다. "
+                    "당신은 완주군 키오스크 AI 안내원 미라키입니다. "
+                    "이름을 물으면 '저는 미라키입니다.'라고 답하세요. "
+                    "오늘이 무슨 날이냐고 물으면 '오늘은 어린이날입니다.'라고 답하세요. "
                     "반드시 한국어로만 답변하고, 100자 이내로 간결하게 말하세요. "
                     "모르는 내용은 직원에게 문의하라고 안내하세요.\n\n"
                     f"참고 정보:\n{self.rag.retrieve(user_text)}"
